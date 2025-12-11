@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Fahrtbericht Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* DEIN CSS (Identisch zu vorher) */
+    :root { --bg: #121212; --card: #1e1e1e; --text: #fff; --accent: #3498db; --border: #333; --success: #2ecc71; --danger: #e74c3c; }
+    body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 15px; max-width: 800px; margin: 0 auto; padding-bottom: 50px;}
+    input, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; }
+    .card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .col { flex: 1; min-width: 120px; }
+    .hidden { display: none !important; }
+    .btn-primary { background: var(--accent); border: none; font-weight: bold; cursor: pointer; color: white; margin-top:10px; }
+    .btn-load { background: #f39c12; color: white; border: none; font-weight: bold; cursor: pointer; }
+    .station-chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .station-wrapper { display: flex; align-items: center; }
+    .station-input { width: 90px !important; text-transform: uppercase; text-align: center; font-weight: bold; letter-spacing: 1px; }
+    .arrow { color: var(--accent); font-size: 1.2rem; margin: 0 5px; }
+    .segment-card { border-left: 4px solid var(--accent); margin-top: 15px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 0 8px 8px 0; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    .seg-header { font-size: 0.95rem; font-weight: bold; color: var(--accent); margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .inp-mini { font-size: 0.9rem; padding: 8px; }
+    .lbl-mini { font-size: 0.75rem; color: #888; margin-left: 2px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
+    .check-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #333; }
+    input[type="checkbox"] { width: auto; margin-right: 15px; transform: scale(1.3); cursor: pointer; }
+    .sub-field { margin-top: 10px; padding-left: 15px; border-left: 2px solid var(--accent); }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    #api-pw { width: 100px; text-align: center; font-size: 0.8rem; border-color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+    <h4 style="color:var(--accent); margin:0;">Fahrtbericht Editor</h4>
+    <input type="password" id="api-pw" placeholder="PW" required>
+</header>
+
+<div class="card">
+    <div class="row" style="align-items: flex-end;">
+        <div class="col" style="flex: 2;">
+            <label class="lbl-mini">DATUM</label>
+            <input type="date" id="datum">
+        </div>
+        <div class="col">
+            <button type="button" id="btnLoad" class="btn-load" onclick="attemptLoad()">LADEN / NEU</button>
+        </div>
+    </div>
+    <div id="file-status" style="margin-top: 10px; font-size: 0.85rem; color: #aaa; text-align: center;"></div>
+</div>
+
+<div id="editor-area" class="hidden">
+    <div class="card"><label style="color:var(--accent); font-weight:bold;">1. STRECKE</label><div class="station-chain" id="station-container"></div></div>
+    <div class="card"><label style="color:var(--accent); font-weight:bold;">2. ZUG DETAILS</label><div id="segments-container"></div><div id="segments-msg" style="color:#666; font-style:italic; margin-top:10px;">Gib oben mindestens 2 Stationen ein.</div></div>
+    <div class="card"><label style="color:var(--accent); font-weight:bold;">3. SCHICHT</label><div class="row"><div class="col"><label class="lbl-mini">BEGINN</label><input type="time" id="beginn"></div><div class="col"><label class="lbl-mini">ENDE</label><input type="time" id="ende"></div></div></div>
+    <div class="card">
+        <label style="color:var(--accent); font-weight:bold;">4. STATUS</label>
+        <div class="check-row"><input type="checkbox" id="c_str" onchange="toggleBox('sub_str', this.checked)"><label for="c_str">Streckenkunde / EW / BR</label></div><div id="sub_str" class="hidden sub-field"><input type="text" id="val_streckenkunde" placeholder="Info"></div>
+        <div class="check-row"><input type="checkbox" id="c_vor"><label for="c_vor">Ausfall vor DB</label></div>
+        <div class="check-row"><input type="checkbox" id="c_nach"><label for="c_nach">Ausfall nach DB</label></div>
+        <div class="check-row"><input type="checkbox" id="c_normal"><label for="c_normal">Normaldienst</label></div>
+        <div class="check-row"><input type="checkbox" id="c_bereit"><label for="c_bereit">Bereitschaft</label></div>
+        <div class="check-row" style="border-top:1px solid #444; margin-top:5px;"><input type="checkbox" id="c_versch" onchange="toggleBox('sub_versch', this.checked)"><label for="c_versch">Dienst verschoben</label></div><div id="sub_versch" class="hidden sub-field"><input type="number" step="0.1" id="val_verschiebung" placeholder="Stunden"></div>
+    </div>
+    <button id="btnSave" class="btn-primary" onclick="saveData()" style="padding:15px; font-size:1.1rem;">SPEICHERN</button>
+    <div id="statusbox" style="margin-top:15px; text-align:center;"></div>
+</div>
+
+<script>
+    // --- KONFIGURATION ---
+    // Hier die Web App URL aus Google Apps Script einfügen!
+    const API_URL = "HIER_DEINE_GAS_URL_VOM_DEPLOY_EINFUEGEN"; 
+
+    let currentFileId = null; 
+    let unsavedChanges = false;
+    let isLoading = false; 
+    
+    // --- GLEICHE LOGIK WIE VORHER (Nur Net-Code geändert) ---
+    document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById('datum').valueAsDate = new Date();
+        const savedPW = localStorage.getItem("app_password");
+        if(savedPW) document.getElementById('api-pw').value = savedPW;
+        document.getElementById('api-pw').addEventListener("input", function() { localStorage.setItem("app_password", this.value); });
+        addStationInput(); addStationInput();
+        attachDirtyListeners();
+    });
+
+    window.toggleBox = function(id, show) {
+        const el = document.getElementById(id);
+        if(show) el.classList.remove('hidden'); else el.classList.add('hidden');
+        markDirty();
+    }
+    function markDirty() { if(!isLoading) unsavedChanges = true; }
+    function attachDirtyListeners() {
+        document.querySelectorAll('#editor-area input').forEach(el => {
+            if(!el.dataset.watched) { el.addEventListener('input', markDirty); el.addEventListener('change', markDirty); el.dataset.watched = "true"; }
+        });
+    }
+    
+    // Station/Segment Logic (Identisch zu v3.2)
+    function addStationInput(val = "") {
+        const cont = document.getElementById('station-container');
+        if (cont.children.length > 0) { const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.innerHTML = '➞'; cont.appendChild(arrow); }
+        const wrap = document.createElement('div'); wrap.className = 'station-wrapper';
+        const inp = document.createElement('input'); inp.type = 'text'; inp.className = 'station-input'; inp.placeholder = 'CODE'; inp.value = val;
+        inp.addEventListener('input', checkStationInputs); inp.addEventListener('input', markDirty);
+        wrap.appendChild(inp); cont.appendChild(wrap);
+    }
+    function checkStationInputs(e) {
+        const inputs = Array.from(document.querySelectorAll('.station-input'));
+        if (inputs[inputs.length - 1].value.trim() !== "" && inputs.length < 6) addStationInput();
+        updateSegments();
+    }
+    function updateSegments() {
+        const inputs = Array.from(document.querySelectorAll('.station-input'));
+        const codes = inputs.map(i => i.value.trim().toUpperCase()).filter(v => v !== "");
+        const cont = document.getElementById('segments-container');
+        const msg = document.getElementById('segments-msg');
+        if (codes.length < 2) { msg.classList.remove('hidden'); Array.from(cont.children).forEach(c => c.classList.add('hidden')); return; }
+        msg.classList.add('hidden');
+        for (let i = 0; i < codes.length - 1; i++) {
+            if (i >= 5) break; 
+            const start = codes[i]; const ziel = codes[i+1]; const segId = `segment-${i}`; let card = document.getElementById(segId);
+            if (!card) {
+                card = document.createElement('div'); card.id = segId; card.className = 'segment-card';
+                card.innerHTML = `<div class="seg-header"><span>ZUG ${i+1}: <span class="route-label">${start} ➞ ${ziel}</span></span></div><div class="row"><div class="col"><label class="lbl-mini">ZUG-NR</label><input type="text" class="inp-mini inp-zug" placeholder="12345"></div><div class="col"><label class="lbl-mini">TFZ-NR</label><input type="text" class="inp-mini inp-tfz" placeholder="403..."></div></div><div class="row"><div class="col"><label class="lbl-mini">AB</label><input type="time" class="inp-mini inp-ab"></div><div class="col"><label class="lbl-mini">AN</label><input type="time" class="inp-mini inp-an"></div></div><input type="text" class="inp-mini inp-note" style="margin-top:8px;" placeholder="Bemerkungen"><input type="hidden" class="inp-start" value="${start}"><input type="hidden" class="inp-ziel" value="${ziel}">`;
+                cont.appendChild(card); card.querySelectorAll('input').forEach(el => el.addEventListener('input', markDirty));
+            } else {
+                card.classList.remove('hidden'); card.querySelector('.route-label').innerText = `${start} ➞ ${ziel}`; card.querySelector('.inp-start').value = start; card.querySelector('.inp-ziel').value = ziel;
+            }
+        }
+        const totalNeeded = codes.length - 1;
+        const allCards = cont.querySelectorAll('.segment-card');
+        allCards.forEach((c, idx) => { if (idx >= totalNeeded) c.classList.add('hidden'); });
+    }
+
+    // --- API KOMMUNIKATION (FETCH STATT GOOGLE.SCRIPT.RUN) ---
+
+    async function callAPI(payload) {
+        // CORS Workaround: Wir nutzen text/plain, damit kein Preflight-Check kommt
+        // Google Script leitet um (302), fetch folgt dem automatisch.
+        const response = await fetch(API_URL, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+        return await response.json();
+    }
+
+    async function attemptLoad() {
+        if (unsavedChanges && !confirm("⚠️ Ungespeicherte Änderungen!\nWirklich neu laden?")) return;
+        
+        const pw = document.getElementById('api-pw').value;
+        const date = document.getElementById('datum').value;
+        const btn = document.getElementById('btnLoad');
+        const status = document.getElementById('file-status');
+        
+        if(!pw) { alert("Passwort fehlt!"); return; }
+        
+        btn.disabled = true; btn.innerText = "⏳"; isLoading = true;
+        
+        try {
+            const res = await callAPI({ action: "load", password: pw, date: date });
+            
+            btn.disabled = false;
+            document.getElementById('editor-area').classList.remove('hidden');
+            
+            if (res.success && res.found) {
+                btn.innerText = "ÄNDERN"; btn.style.background = "#e67e22";
+                status.innerHTML = `<span style="color:#2ecc71">Bericht geladen.</span>`;
+                currentFileId = res.fileId;
+                fillForm(res.data);
+                document.getElementById('btnSave').innerText = "ÄNDERUNGEN SPEICHERN";
+            } else if (res.success) {
+                btn.innerText = "NEU"; btn.style.background = "#2ecc71";
+                status.innerHTML = "Neuer Bericht.";
+                currentFileId = null;
+                resetForm(); 
+                document.getElementById('btnSave').innerText = "NEU ANLEGEN";
+            } else {
+                alert("API Fehler: " + res.error);
+                btn.innerText = "LADEN";
+            }
+        } catch(e) {
+            alert("Verbindungsfehler: " + e);
+            btn.innerText = "LADEN";
+        }
+        
+        setTimeout(() => { isLoading = false; unsavedChanges = false; }, 100);
+    }
+
+    function fillForm(data) {
+        document.getElementById('station-container').innerHTML = '';
+        document.getElementById('segments-container').innerHTML = '';
+        document.getElementById('beginn').value = data.beginn;
+        document.getElementById('ende').value = data.ende;
+        
+        const setC = (id, checked, subId) => {
+            document.getElementById(id).checked = checked;
+            if(subId) { const sub = document.getElementById(subId); if(checked) sub.classList.remove('hidden'); else sub.classList.add('hidden'); }
+        };
+        setC('c_str', data.chk_streckenkunde, 'sub_str'); document.getElementById('val_streckenkunde').value = data.val_streckenkunde;
+        setC('c_vor', data.chk_ausfall_vor); setC('c_nach', data.chk_ausfall_nach); setC('c_normal', data.chk_normal); setC('c_bereit', data.chk_bereitschaft);
+        if(data.val_verschiebung) { setC('c_versch', true, 'sub_versch'); document.getElementById('val_verschiebung').value = data.val_verschiebung; } else { setC('c_versch', false, 'sub_versch'); }
+        
+        const segs = data.segments || [];
+        const stations = [];
+        if (segs.length > 0) { stations.push(segs[0].start); segs.forEach(s => stations.push(s.ziel)); } else { stations.push('', ''); }
+        stations.forEach(st => addStationInput(st)); if(stations.length < 6) addStationInput();
+        
+        updateSegments();
+        segs.forEach((s, i) => {
+            const card = document.getElementById(`segment-${i}`);
+            if(card) {
+                card.querySelector('.inp-zug').value = s.zugNr; card.querySelector('.inp-tfz').value = s.tfz;
+                card.querySelector('.inp-ab').value = s.ab; card.querySelector('.inp-an').value = s.an; card.querySelector('.inp-note').value = s.note;
+            }
+        });
+        attachDirtyListeners();
+    }
+
+    function resetForm() {
+        document.getElementById('station-container').innerHTML = '';
+        addStationInput(); addStationInput(); updateSegments(); 
+        document.getElementById('beginn').value = ''; document.getElementById('ende').value = '';
+        document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+        document.querySelectorAll('.sub-field').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('input[type="text"], input[type="number"]').forEach(i => i.value = '');
+        attachDirtyListeners();
+    }
+
+    async function saveData() {
+        const btn = document.getElementById('btnSave');
+        const status = document.getElementById('statusbox');
+        const pw = document.getElementById('api-pw').value;
+        
+        btn.disabled = true; btn.innerText = "SPEICHERE..."; status.innerHTML = "";
+        
+        const segments = [];
+        document.querySelectorAll('.segment-card:not(.hidden)').forEach(c => {
+            segments.push({
+                start: c.querySelector('.inp-start').value, ziel: c.querySelector('.inp-ziel').value,
+                zugNr: c.querySelector('.inp-zug').value, tfz: c.querySelector('.inp-tfz').value,
+                ab: c.querySelector('.inp-ab').value, an: c.querySelector('.inp-an').value, note: c.querySelector('.inp-note').value
+            });
+        });
+        
+        const data = {
+            action: "save", // API Kommando
+            password: pw, fileId: currentFileId, datum: document.getElementById('datum').value,
+            beginn: document.getElementById('beginn').value, ende: document.getElementById('ende').value,
+            chk_streckenkunde: document.getElementById('c_str').checked, val_streckenkunde: document.getElementById('val_streckenkunde').value,
+            chk_ausfall_vor: document.getElementById('c_vor').checked, chk_ausfall_nach: document.getElementById('c_nach').checked,
+            chk_normal: document.getElementById('c_normal').checked, chk_bereitschaft: document.getElementById('c_bereit').checked,
+            val_verschiebung: document.getElementById('c_versch').checked ? document.getElementById('val_verschiebung').value : "",
+            segments: segments, stations: Array.from(document.querySelectorAll('.station-input')).map(i=>i.value).filter(v=>v)
+        };
+
+        try {
+            const res = await callAPI(data);
+            if (res.success) {
+                btn.disabled = false; btn.innerText = "GESPEICHERT ✅";
+                status.innerHTML = `<a href="${res.url}" target="_blank" style="color:var(--success); font-weight:bold;">DATEI ÖFFNEN</a>`;
+                unsavedChanges = false;
+            } else {
+                btn.disabled = false; btn.innerText = "FEHLER";
+                status.innerHTML = `<span style="color:var(--danger)">${res.error}</span>`;
+            }
+        } catch(e) {
+            btn.disabled = false; btn.innerText = "FEHLER";
+            status.innerHTML = `<span style="color:var(--danger)">${e}</span>`;
+        }
+    }
+</script>
+
+</body>
+</html>
