@@ -5,7 +5,7 @@
   <title>Fahrtbericht Editor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* DEIN CSS (Identisch zu vorher) */
+    /* DEIN CSS (Unverändert) */
     :root { --bg: #121212; --card: #1e1e1e; --text: #fff; --accent: #3498db; --border: #333; --success: #2ecc71; --danger: #e74c3c; }
     body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 15px; max-width: 800px; margin: 0 auto; padding-bottom: 50px;}
     input, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; }
@@ -70,14 +70,13 @@
 
 <script>
     // --- KONFIGURATION ---
-    // Hier die Web App URL aus Google Apps Script einfügen!
-    const API_URL = "https://script.google.com/macros/s/AKfycbxi2ZRMOQGDFNjUWhg_Zs_EAfuAfAfoQ9SzkKV8aQWbSUWY_9FdUNXqyrUSsXt4E6-y/exec"; 
+    // HIER DEINE URL EINTRAGEN
+    const API_URL = "HIER_DEINE_GAS_URL_VOM_DEPLOY_EINFUEGEN"; 
 
     let currentFileId = null; 
     let unsavedChanges = false;
     let isLoading = false; 
     
-    // --- GLEICHE LOGIK WIE VORHER (Nur Net-Code geändert) ---
     document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('datum').valueAsDate = new Date();
         const savedPW = localStorage.getItem("app_password");
@@ -99,7 +98,6 @@
         });
     }
     
-    // Station/Segment Logic (Identisch zu v3.2)
     function addStationInput(val = "") {
         const cont = document.getElementById('station-container');
         if (cont.children.length > 0) { const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.innerHTML = '➞'; cont.appendChild(arrow); }
@@ -136,15 +134,8 @@
         allCards.forEach((c, idx) => { if (idx >= totalNeeded) c.classList.add('hidden'); });
     }
 
-    // --- API KOMMUNIKATION (FETCH STATT GOOGLE.SCRIPT.RUN) ---
-
     async function callAPI(payload) {
-        // CORS Workaround: Wir nutzen text/plain, damit kein Preflight-Check kommt
-        // Google Script leitet um (302), fetch folgt dem automatisch.
-        const response = await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify(payload)
-        });
+        const response = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
         return await response.json();
     }
 
@@ -162,7 +153,6 @@
         
         try {
             const res = await callAPI({ action: "load", password: pw, date: date });
-            
             btn.disabled = false;
             document.getElementById('editor-area').classList.remove('hidden');
             
@@ -179,20 +169,17 @@
                 resetForm(); 
                 document.getElementById('btnSave').innerText = "NEU ANLEGEN";
             } else {
-                alert("API Fehler: " + res.error);
-                btn.innerText = "LADEN";
+                alert("API Fehler: " + res.error); btn.innerText = "LADEN";
             }
         } catch(e) {
-            alert("Verbindungsfehler: " + e);
-            btn.innerText = "LADEN";
+            alert("Verbindungsfehler: " + e); btn.innerText = "LADEN";
         }
-        
         setTimeout(() => { isLoading = false; unsavedChanges = false; }, 100);
     }
 
     function fillForm(data) {
         document.getElementById('station-container').innerHTML = '';
-        document.getElementById('segments-container').innerHTML = '';
+        document.getElementById('segments-container').innerHTML = ''; // ALTE KARTEN LÖSCHEN
         document.getElementById('beginn').value = data.beginn;
         document.getElementById('ende').value = data.ende;
         
@@ -221,12 +208,20 @@
     }
 
     function resetForm() {
+        // RADIKALER RESET
         document.getElementById('station-container').innerHTML = '';
-        addStationInput(); addStationInput(); updateSegments(); 
-        document.getElementById('beginn').value = ''; document.getElementById('ende').value = '';
+        document.getElementById('segments-container').innerHTML = ''; // ALTE KARTEN LÖSCHEN
+        
+        addStationInput(); addStationInput(); 
+        // updateSegments nicht nötig, da container leer
+        
         document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
         document.querySelectorAll('.sub-field').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('input[type="text"], input[type="number"]').forEach(i => i.value = '');
+        
+        // Alle Felder leeren, die nicht geschützt sind (inkl. TIME)
+        // Schützt: Buttons, Datum (oben), Passwort, Checkboxen, Radio
+        document.querySelectorAll('input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="date"]):not([type="password"])').forEach(i => i.value = '');
+        
         attachDirtyListeners();
     }
 
@@ -247,8 +242,7 @@
         });
         
         const data = {
-            action: "save", // API Kommando
-            password: pw, fileId: currentFileId, datum: document.getElementById('datum').value,
+            action: "save", password: pw, fileId: currentFileId, datum: document.getElementById('datum').value,
             beginn: document.getElementById('beginn').value, ende: document.getElementById('ende').value,
             chk_streckenkunde: document.getElementById('c_str').checked, val_streckenkunde: document.getElementById('val_streckenkunde').value,
             chk_ausfall_vor: document.getElementById('c_vor').checked, chk_ausfall_nach: document.getElementById('c_nach').checked,
@@ -264,12 +258,10 @@
                 status.innerHTML = `<a href="${res.url}" target="_blank" style="color:var(--success); font-weight:bold;">DATEI ÖFFNEN</a>`;
                 unsavedChanges = false;
             } else {
-                btn.disabled = false; btn.innerText = "FEHLER";
-                status.innerHTML = `<span style="color:var(--danger)">${res.error}</span>`;
+                btn.disabled = false; btn.innerText = "FEHLER"; status.innerHTML = `<span style="color:var(--danger)">${res.error}</span>`;
             }
         } catch(e) {
-            btn.disabled = false; btn.innerText = "FEHLER";
-            status.innerHTML = `<span style="color:var(--danger)">${e}</span>`;
+            btn.disabled = false; btn.innerText = "FEHLER"; status.innerHTML = `<span style="color:var(--danger)">${e}</span>`;
         }
     }
 </script>
