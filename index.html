@@ -45,7 +45,7 @@
             <input type="date" id="datum">
         </div>
         <div class="col">
-            <button type="button" id="btnLoad" class="btn-load" onclick="attemptLoad()">LADEN / NEU</button>
+            <button type="button" id="btnLoad" class="btn-load" onclick="attemptLoad()">LADEN/ANLEGEN</button>
         </div>
     </div>
     <div id="file-status" style="margin-top: 10px; font-size: 0.85rem; color: #aaa; text-align: center;"></div>
@@ -98,6 +98,7 @@
         });
     }
     
+    // Station/Segment Logic (Identisch zu v3.2)
     function addStationInput(val = "") {
         const cont = document.getElementById('station-container');
         if (cont.children.length > 0) { const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.innerHTML = '➞'; cont.appendChild(arrow); }
@@ -156,30 +157,38 @@
             btn.disabled = false;
             document.getElementById('editor-area').classList.remove('hidden');
             
+            // Button Text immer zurücksetzen
+            btn.innerText = "LADEN/ANLEGEN";
+            
             if (res.success && res.found) {
-                btn.innerText = "ÄNDERN"; btn.style.background = "#e67e22";
+                // Button Farbe kann man als Feedback lassen, oder neutral machen
+                // Wir lassen es neutral (btn-load class hat Farbe orange) oder setzen style zurück?
+                // Der User wollte "immer Laden/Anlegen".
+                // Wir können das Feedback im Status-Text lassen.
                 status.innerHTML = `<span style="color:#2ecc71">Bericht geladen.</span>`;
                 currentFileId = res.fileId;
                 fillForm(res.data);
                 document.getElementById('btnSave').innerText = "ÄNDERUNGEN SPEICHERN";
             } else if (res.success) {
-                btn.innerText = "NEU"; btn.style.background = "#2ecc71";
                 status.innerHTML = "Neuer Bericht.";
                 currentFileId = null;
                 resetForm(); 
                 document.getElementById('btnSave').innerText = "NEU ANLEGEN";
             } else {
-                alert("API Fehler: " + res.error); btn.innerText = "LADEN";
+                alert("API Fehler: " + res.error);
             }
         } catch(e) {
-            alert("Verbindungsfehler: " + e); btn.innerText = "LADEN";
+            alert("Verbindungsfehler: " + e);
+            btn.innerText = "LADEN/ANLEGEN";
         }
+        
         setTimeout(() => { isLoading = false; unsavedChanges = false; }, 100);
     }
 
     function fillForm(data) {
+        // ... (Identisch zu vorher)
         document.getElementById('station-container').innerHTML = '';
-        document.getElementById('segments-container').innerHTML = ''; // ALTE KARTEN LÖSCHEN
+        document.getElementById('segments-container').innerHTML = ''; 
         document.getElementById('beginn').value = data.beginn;
         document.getElementById('ende').value = data.ende;
         
@@ -208,20 +217,13 @@
     }
 
     function resetForm() {
-        // RADIKALER RESET
         document.getElementById('station-container').innerHTML = '';
-        document.getElementById('segments-container').innerHTML = ''; // ALTE KARTEN LÖSCHEN
-        
+        document.getElementById('segments-container').innerHTML = ''; 
         addStationInput(); addStationInput(); 
-        // updateSegments nicht nötig, da container leer
-        
+        document.getElementById('beginn').value = ''; document.getElementById('ende').value = '';
         document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
         document.querySelectorAll('.sub-field').forEach(el => el.classList.add('hidden'));
-        
-        // Alle Felder leeren, die nicht geschützt sind (inkl. TIME)
-        // Schützt: Buttons, Datum (oben), Passwort, Checkboxen, Radio
-        document.querySelectorAll('input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="date"]):not([type="password"])').forEach(i => i.value = '');
-        
+        document.querySelectorAll('input[type="text"], input[type="number"]').forEach(i => i.value = '');
         attachDirtyListeners();
     }
 
@@ -258,10 +260,12 @@
                 status.innerHTML = `<a href="${res.url}" target="_blank" style="color:var(--success); font-weight:bold;">DATEI ÖFFNEN</a>`;
                 unsavedChanges = false;
             } else {
-                btn.disabled = false; btn.innerText = "FEHLER"; status.innerHTML = `<span style="color:var(--danger)">${res.error}</span>`;
+                btn.disabled = false; btn.innerText = "FEHLER";
+                status.innerHTML = `<span style="color:var(--danger)">${res.error}</span>`;
             }
         } catch(e) {
-            btn.disabled = false; btn.innerText = "FEHLER"; status.innerHTML = `<span style="color:var(--danger)">${e}</span>`;
+            btn.disabled = false; btn.innerText = "FEHLER";
+            status.innerHTML = `<span style="color:var(--danger)">${e}</span>`;
         }
     }
 </script>
