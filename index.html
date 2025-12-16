@@ -23,8 +23,9 @@
     
     .btn-primary { background: var(--accent); border: none; font-weight: bold; cursor: pointer; color: white; margin-top:10px; font-size: 1.1rem; padding: 15px; }
     .btn-load { background: var(--warn); color: white; border: none; font-weight: bold; cursor: pointer; }
-    .btn-nav { background: #333; border: 1px solid #555; font-size: 0.9rem; } /* Neue Buttons */
-    
+    .btn-nav { background: #333; border: 1px solid #555; font-size: 0.9rem; cursor: pointer; }
+    .btn-nav:hover { background: #444; }
+
     #offline-banner { background: var(--danger); color: white; text-align: center; padding: 10px; font-weight: bold; border-radius: 8px; margin-bottom: 15px; display: none; }
     
     .station-chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -64,7 +65,7 @@
 <body>
 
 <header>
-    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V7</h4>
+    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V7.1</h4>
     <input type="password" id="api-pw" placeholder="PW" required>
 </header>
 
@@ -154,7 +155,7 @@
 </div>
 
 <script>
-    // --- HIER DEINE URL EINFÜGEN ---
+    // --- DEINE URL EINFÜGEN ---
     const API_URL = "https://script.google.com/macros/s/AKfycbw1pMOyQJBEQulcNO_vuDonoipHF0SdYFZrRYaacnB6JO0UoEHFpTkUK-JnoNhhkRd9/exec"; 
 
     // STATE
@@ -184,12 +185,24 @@
         }
     });
 
+    // --- NEU: AUTO-LOAD BEI DATUMSÄNDERUNG ---
     document.getElementById('datum').addEventListener('change', (e) => {
+        if (unsavedChanges && !confirm("⚠️ Ungespeicherte Änderungen!\nWirklich Datum wechseln?")) {
+            // Falls User abbricht, Datum zurücksetzen wäre kompliziert, wir lassen es so.
+            return; 
+        }
+        resetStatusUI(); // Button & Text zurücksetzen
         checkDraftAvailability(e.target.value);
-        // Hinweis: Automatisch neu laden beim manuellen Datumswechsel machen wir nicht, 
-        // um Datenverlust zu vermeiden, wenn man aus Versehen klickt.
-        // Dafür gibt es jetzt die Nav-Buttons.
+        attemptLoad(); // SOFORT LADEN
     });
+
+    // --- NEU: HELPER FÜR UI RESET ---
+    function resetStatusUI() {
+        document.getElementById('statusbox').innerHTML = "";
+        const btn = document.getElementById('btnSave');
+        btn.innerText = "SPEICHERN";
+        btn.disabled = false;
+    }
 
     // NAVIGATION LOGIC
     function changeDay(offset) {
@@ -202,7 +215,7 @@
         d.setDate(d.getDate() + offset);
         dateInput.valueAsDate = d;
         
-        // Status prüfen und sofort laden
+        resetStatusUI();
         checkDraftAvailability(dateInput.value);
         attemptLoad();
     }
@@ -294,7 +307,6 @@
 
     // NETWORK & SYNC
     async function callAPI(payload) {
-        // --- TIMEOUT ERHÖHT AUF 30 SEKUNDEN ---
         const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 30000);
         const response = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload), signal: controller.signal });
         clearTimeout(timeoutId); return await response.json();
@@ -316,7 +328,7 @@
             
             // UI REVEAL
             document.getElementById('editor-area').classList.remove('hidden');
-            document.getElementById('nav-buttons').classList.remove('hidden'); // Buttons zeigen!
+            document.getElementById('nav-buttons').classList.remove('hidden'); 
             
             if (res.success) {
                 const localDraftJson = localStorage.getItem("draft_" + date);
