@@ -13,8 +13,8 @@
     }
     body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 15px; max-width: 800px; margin: 0 auto; padding-bottom: 80px;}
     
-    input, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; }
-    input:focus { border-color: var(--accent); outline: none; }
+    input, button, textarea { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; font-family: sans-serif; }
+    input:focus, textarea:focus { border-color: var(--accent); outline: none; }
     
     .card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     .row { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -83,6 +83,7 @@
 </div>
 
 <div id="editor-area" class="hidden">
+    
     <div class="card">
         <label style="color:var(--accent); font-weight:bold;">1. STRECKE</label>
         <div class="station-chain" id="station-container"></div>
@@ -114,6 +115,14 @@
         <div id="sub_versch" class="hidden sub-field"><input type="number" step="0.1" id="val_verschiebung" placeholder="Stunden"></div>
     </div>
 
+    <div class="card">
+        <label style="color:var(--accent); font-weight:bold;">5. SONSTIGE BEMERKUNGEN</label>
+        <div style="font-size:0.75rem; color:#888; margin-bottom:5px; line-height: 1.3;">
+            Sonstige Hinweise, Lokzustand, Störungen, Mängel an Fahrzeugen, Fehlende Fahrplanunterlagen, Dienstplanwünsche, etc.
+        </div>
+        <textarea id="manual_notes" rows="3" placeholder="Hier tippen..."></textarea>
+    </div>
+
     <button id="btnSave" class="btn-primary" onclick="saveData()">SPEICHERN</button>
     <div id="statusbox" style="margin-top:15px; text-align:center;"></div>
 </div>
@@ -134,7 +143,7 @@
 </div>
 
 <script>
-    // --- DEINE AKTUELLE URL ---
+    // --- DEINE URL ---
     const API_URL = "https://script.google.com/macros/s/AKfycbw1pMOyQJBEQulcNO_vuDonoipHF0SdYFZrRYaacnB6JO0UoEHFpTkUK-JnoNhhkRd9/exec"; 
 
     // STATE
@@ -152,6 +161,9 @@
         
         addStationInput(); addStationInput();
         attachDirtyListeners();
+        // Textarea Listener hinzufügen
+        document.getElementById('manual_notes').addEventListener('input', markDirty);
+        
         checkDraftAvailability(document.getElementById('datum').value);
     });
 
@@ -198,6 +210,7 @@
             chk_ausfall_vor: document.getElementById('c_vor').checked, chk_ausfall_nach: document.getElementById('c_nach').checked,
             chk_normal: document.getElementById('c_normal').checked, chk_bereitschaft: document.getElementById('c_bereit').checked,
             val_verschiebung: document.getElementById('c_versch').checked ? document.getElementById('val_verschiebung').value : "",
+            manual_notes: document.getElementById('manual_notes').value, // NEU
             segments: segments, stations: Array.from(document.querySelectorAll('.station-input')).map(i=>i.value).filter(v=>v)
         };
     }
@@ -246,195 +259,4 @@
 
     async function attemptLoad() {
         const pw = document.getElementById('api-pw').value;
-        const date = document.getElementById('datum').value;
-        const btn = document.getElementById('btnLoad');
-        const status = document.getElementById('file-status');
-        const banner = document.getElementById('offline-banner');
-        
-        if(!pw) { alert("Passwort fehlt!"); return; }
-        btn.disabled = true; btn.innerText = "⏳"; isLoading = true; status.innerHTML = "";
-        
-        try {
-            const res = await callAPI({ action: "load", password: pw, date: date });
-            isOfflineMode = false; banner.style.display = "none";
-            document.getElementById('editor-area').classList.remove('hidden');
-            
-            if (res.success) {
-                const localDraftJson = localStorage.getItem("draft_" + date);
-                if (localDraftJson && res.found) {
-                    const localDraft = JSON.parse(localDraftJson);
-                    const conflicts = compareDatasets(res.data, localDraft);
-                    if (conflicts.length === 0) {
-                        status.innerHTML = `<span style="color:#2ecc71">Geladen. Entwurf war identisch.</span>`;
-                        currentFileId = res.fileId; fillForm(res.data); localStorage.removeItem("draft_" + date);
-                    } else {
-                        status.innerHTML = `<span style="color:var(--warn)">Konflikte erkannt!</span>`;
-                        currentFileId = res.fileId; pendingMergeData = { server: res.data, draft: localDraft, conflicts: conflicts };
-                        showConflictModal(conflicts); fillForm(res.data);
-                    }
-                } else if (res.found) {
-                    status.innerHTML = `<span style="color:#2ecc71">Bericht geladen.</span>`;
-                    currentFileId = res.fileId; fillForm(res.data);
-                } else if (localDraftJson) {
-                     status.innerHTML = `<span style="color:var(--warn)">Neu (Nur lokaler Entwurf).</span>`;
-                     loadFromLocal(localDraftJson);
-                } else {
-                    status.innerHTML = "Neuer Bericht."; currentFileId = null; resetForm(); 
-                }
-            } else {
-                alert("API Fehler: " + res.error);
-            }
-        } catch(e) {
-            isOfflineMode = true; banner.style.display = "block";
-            document.getElementById('editor-area').classList.remove('hidden');
-            const localDraft = localStorage.getItem("draft_" + date);
-            if(localDraft) { status.innerHTML = "Offline. Entwurf geladen."; loadFromLocal(localDraft); }
-            else { status.innerHTML = "Offline. Neu."; currentFileId = null; resetForm(); }
-        }
-        btn.innerText = "LADEN/ANLEGEN";
-        setTimeout(() => { isLoading = false; unsavedChanges = false; }, 100);
-    }
-
-    // CONFLICTS
-    function compareDatasets(server, draft) {
-        const diffs = [];
-        const check = (label, key, isBool = false) => {
-            const sVal = server[key] || (isBool ? false : "");
-            const dVal = draft[key] || (isBool ? false : "");
-            if (String(sVal) !== String(dVal)) { if(!sVal && !dVal) return; diffs.push({ label: label, key: key, server: sVal, draft: dVal, isSeg: false }); }
-        };
-        check("Dienstbeginn", "beginn"); check("Dienstende", "ende");
-        check("Streckenkunde", "chk_streckenkunde", true); check("Info Streckenkunde", "val_streckenkunde");
-        check("Ausfall vor", "chk_ausfall_vor", true); check("Ausfall nach", "chk_ausfall_nach", true);
-        check("Normaldienst", "chk_normal", true); check("Bereitschaft", "chk_bereitschaft", true);
-        check("Verschiebung", "val_verschiebung");
-
-        const maxLen = Math.max(server.segments?.length || 0, draft.segments?.length || 0);
-        for(let i=0; i<maxLen; i++) {
-            const sSeg = server.segments?.[i] || {};
-            const dSeg = draft.segments?.[i] || {};
-            const subCheck = (name, f) => {
-                if (String(sSeg[f]||"") !== String(dSeg[f]||"")) {
-                    diffs.push({ label: `Zug ${i+1}: ${name}`, key: `seg_${i}_${f}`, server: sSeg[f]||"(leer)", draft: dSeg[f]||"(leer)", isSeg: true, idx: i, field: f });
-                }
-            };
-            subCheck("Zug-Nr", "zugNr"); subCheck("Tfz", "tfz"); subCheck("Abfahrt", "ab"); subCheck("Ankunft", "an"); subCheck("Notiz", "note");
-        }
-        return diffs;
-    }
-
-    function showConflictModal(conflicts) {
-        const list = document.getElementById('conflict-list');
-        list.innerHTML = "";
-        conflicts.forEach((c, idx) => {
-            const div = document.createElement('div');
-            div.className = "conflict-item";
-            const showVal = (v) => v === true ? "☑ JA" : (v === false ? "☐ NEIN" : v);
-            div.innerHTML = `
-                <div class="conflict-label">${c.label}</div>
-                <div class="val-box val-server" id="conf-s-${idx}" onclick="selectResolution(${idx}, 'server')"><span>SERVER: <b>${showVal(c.server)}</b></span></div>
-                <div class="val-box val-draft selected" id="conf-d-${idx}" onclick="selectResolution(${idx}, 'draft')"><span>ENTWURF: <b>${showVal(c.draft)}</b></span></div>
-            `;
-            list.appendChild(div);
-        });
-        document.getElementById('conflict-modal').classList.remove('hidden');
-    }
-
-    window.selectResolution = function(idx, choice) {
-        document.getElementById(`conf-s-${idx}`).classList.remove('selected');
-        document.getElementById(`conf-d-${idx}`).classList.remove('selected');
-        document.getElementById(`conf-${choice.charAt(0)}-${idx}`).classList.add('selected');
-    }
-    window.resolveAll = function(choice) {
-        const boxes = document.querySelectorAll('.val-box');
-        boxes.forEach(b => b.classList.remove('selected'));
-        const targetClass = choice === 'server' ? '.val-server' : '.val-draft';
-        document.querySelectorAll(targetClass).forEach(b => b.classList.add('selected'));
-    }
-    window.applyResolution = function() {
-        const conflicts = pendingMergeData.conflicts;
-        const mergedData = JSON.parse(JSON.stringify(pendingMergeData.server));
-        if(!mergedData.segments) mergedData.segments = [];
-        conflicts.forEach((c, idx) => {
-            if (document.getElementById(`conf-d-${idx}`).classList.contains('selected')) {
-                if (!c.isSeg) mergedData[c.key] = pendingMergeData.draft[c.key];
-                else {
-                    if(!mergedData.segments[c.idx]) mergedData.segments[c.idx] = {};
-                    mergedData.segments[c.idx][c.field] = pendingMergeData.draft.segments?.[c.idx]?.[c.field];
-                }
-            }
-        });
-        fillForm(mergedData);
-        document.getElementById('conflict-modal').classList.add('hidden');
-        document.getElementById('file-status').innerHTML = `<span style="color:var(--success)">Konflikte gelöst.</span>`;
-        unsavedChanges = true; 
-    }
-
-    // FORM FILL & RESET
-    function loadFromLocal(jsonStr) { const data = JSON.parse(jsonStr); currentFileId = data.fileId; fillForm(data); }
-    function fillForm(data) {
-        document.getElementById('station-container').innerHTML = ''; document.getElementById('segments-container').innerHTML = ''; 
-        document.getElementById('beginn').value = data.beginn; document.getElementById('ende').value = data.ende;
-        const setC = (id, checked, subId) => { document.getElementById(id).checked = checked; if(subId) { const sub = document.getElementById(subId); if(checked) sub.classList.remove('hidden'); else sub.classList.add('hidden'); } };
-        setC('c_str', data.chk_streckenkunde, 'sub_str'); document.getElementById('val_streckenkunde').value = data.val_streckenkunde;
-        setC('c_vor', data.chk_ausfall_vor); setC('c_nach', data.chk_ausfall_nach); setC('c_normal', data.chk_normal); setC('c_bereit', data.chk_bereitschaft);
-        if(data.val_verschiebung) { setC('c_versch', true, 'sub_versch'); document.getElementById('val_verschiebung').value = data.val_verschiebung; } else { setC('c_versch', false, 'sub_versch'); }
-        
-        const segs = data.segments || [];
-        const stations = [];
-        if(data.stations && data.stations.length > 0) data.stations.forEach(st => stations.push(st));
-        else if (segs.length > 0) { stations.push(segs[0].start); segs.forEach(s => stations.push(s.ziel)); } 
-        else { stations.push('', ''); }
-        
-        stations.forEach(st => addStationInput(st)); if(stations.length < 6) addStationInput();
-        updateSegments();
-        segs.forEach((s, i) => { const card = document.getElementById(`segment-${i}`); if(card) { card.querySelector('.inp-zug').value = s.zugNr; card.querySelector('.inp-tfz').value = s.tfz; card.querySelector('.inp-ab').value = s.ab; card.querySelector('.inp-an').value = s.an; card.querySelector('.inp-note').value = s.note; } });
-        attachDirtyListeners();
-    }
-    function resetForm() {
-        document.getElementById('station-container').innerHTML = ''; document.getElementById('segments-container').innerHTML = ''; 
-        addStationInput(); addStationInput(); 
-        document.getElementById('beginn').value = ''; document.getElementById('ende').value = '';
-        document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
-        document.querySelectorAll('.sub-field').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="date"]):not([type="password"])').forEach(i => i.value = '');
-        attachDirtyListeners();
-    }
-
-    // SAVE
-    async function saveData() {
-        const btn = document.getElementById('btnSave');
-        const status = document.getElementById('statusbox');
-        const date = document.getElementById('datum').value;
-        btn.disabled = true; btn.innerText = "SPEICHERE..."; 
-        autoSaveToLocal(); 
-        
-        if (isOfflineMode) { 
-            btn.disabled = false; btn.innerText = "LOKAL GESICHERT 💾"; 
-            status.innerHTML = `<span style="color:var(--warn)">Daten auf Handy gespeichert.<br>Sende sie, wenn du Internet hast!</span>`; 
-            unsavedChanges = false; return; 
-        }
-
-        const data = collectFormData(); 
-        data.action = "save"; 
-
-        try {
-            const res = await callAPI(data);
-            if (res.success) { 
-                btn.disabled = false; btn.innerText = "GESPEICHERT ✅"; 
-                status.innerHTML = `<div style="margin-top:10px;">✅ <b>Erfolg!</b><br><a href="${res.excelUrl}" target="_blank" style="color:var(--success); font-weight:bold; border:1px solid var(--success); padding:5px 10px; border-radius:5px; text-decoration:none;">📤 EXCEL LADEN</a></div>`; 
-                unsavedChanges = false; localStorage.removeItem("draft_" + date); 
-            } else { 
-                btn.disabled = false; btn.innerText = "FEHLER"; status.innerHTML = `<span style="color:var(--danger)">${res.error}</span>`; 
-            }
-        } catch(e) { 
-            isOfflineMode = true; document.getElementById('offline-banner').style.display = "block"; 
-            btn.disabled = false; btn.innerText = "LOKAL GESICHERT 💾"; 
-            status.innerHTML = `<span style="color:var(--danger)">Verbindung verloren.<br>Daten lokal gesichert.</span>`; 
-            unsavedChanges = false; 
-        }
-    }
-</script>
-
-</body>
-</html>
+        const date = document.getElementById
