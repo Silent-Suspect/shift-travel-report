@@ -5,38 +5,69 @@
   <title>Fahrtbericht Editor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* DEIN CSS (Unverändert) */
-    :root { --bg: #121212; --card: #1e1e1e; --text: #fff; --accent: #3498db; --border: #333; --success: #2ecc71; --danger: #e74c3c; }
-    body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 15px; max-width: 800px; margin: 0 auto; padding-bottom: 50px;}
+    /* --- STYLES --- */
+    :root { 
+        --bg: #121212; --card: #1e1e1e; --text: #fff; 
+        --accent: #3498db; --border: #333; 
+        --success: #2ecc71; --danger: #e74c3c; --warn: #f39c12; 
+    }
+    body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 15px; max-width: 800px; margin: 0 auto; padding-bottom: 80px;}
+    
     input, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; }
+    input:focus { border-color: var(--accent); outline: none; }
+    
     .card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     .row { display: flex; gap: 10px; flex-wrap: wrap; }
     .col { flex: 1; min-width: 120px; }
     .hidden { display: none !important; }
-    .btn-primary { background: var(--accent); border: none; font-weight: bold; cursor: pointer; color: white; margin-top:10px; }
-    .btn-load { background: #f39c12; color: white; border: none; font-weight: bold; cursor: pointer; }
+    
+    .btn-primary { background: var(--accent); border: none; font-weight: bold; cursor: pointer; color: white; margin-top:10px; font-size: 1.1rem; padding: 15px; }
+    .btn-load { background: var(--warn); color: white; border: none; font-weight: bold; cursor: pointer; }
+    
+    #offline-banner { background: var(--danger); color: white; text-align: center; padding: 10px; font-weight: bold; border-radius: 8px; margin-bottom: 15px; display: none; }
+    
     .station-chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .station-wrapper { display: flex; align-items: center; }
     .station-input { width: 90px !important; text-transform: uppercase; text-align: center; font-weight: bold; letter-spacing: 1px; }
     .arrow { color: var(--accent); font-size: 1.2rem; margin: 0 5px; }
+    
     .segment-card { border-left: 4px solid var(--accent); margin-top: 15px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 0 8px 8px 0; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     .seg-header { font-size: 0.95rem; font-weight: bold; color: var(--accent); margin-bottom: 8px; display: flex; justify-content: space-between; }
     .inp-mini { font-size: 0.9rem; padding: 8px; }
     .lbl-mini { font-size: 0.75rem; color: #888; margin-left: 2px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
+    
     .check-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #333; }
     input[type="checkbox"] { width: auto; margin-right: 15px; transform: scale(1.3); cursor: pointer; }
     .sub-field { margin-top: 10px; padding-left: 15px; border-left: 2px solid var(--accent); }
+    
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     #api-pw { width: 100px; text-align: center; font-size: 0.8rem; border-color: var(--accent); }
+
+    /* CONFLICT MODAL */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
+    .modal-content { background: var(--card); width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; border-radius: 12px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .modal-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; color: var(--warn); }
+    
+    .conflict-item { background: #000; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #333; }
+    .conflict-label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .val-box { padding: 8px; margin: 2px 0; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; }
+    .val-server { background: rgba(52, 152, 219, 0.2); color: #aaa; } 
+    .val-draft { background: rgba(46, 204, 113, 0.2); color: #fff; font-weight: bold; }
+    .val-box.selected { border-color: var(--success); background: rgba(46, 204, 113, 0.4); }
+    .val-box:not(.selected) { opacity: 0.6; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-server { background: #555; } .btn-draft { background: var(--success); }
   </style>
 </head>
 <body>
 
 <header>
-    <h4 style="color:var(--accent); margin:0;">Fahrtbericht Editor</h4>
+    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V6</h4>
     <input type="password" id="api-pw" placeholder="PW" required>
 </header>
+
+<div id="offline-banner">⚠️ OFFLINE MODUS</div>
 
 <div class="card">
     <div class="row" style="align-items: flex-end;">
@@ -52,53 +83,125 @@
 </div>
 
 <div id="editor-area" class="hidden">
-    <div class="card"><label style="color:var(--accent); font-weight:bold;">1. STRECKE</label><div class="station-chain" id="station-container"></div></div>
-    <div class="card"><label style="color:var(--accent); font-weight:bold;">2. ZUG DETAILS</label><div id="segments-container"></div><div id="segments-msg" style="color:#666; font-style:italic; margin-top:10px;">Gib oben mindestens 2 Stationen ein.</div></div>
-    <div class="card"><label style="color:var(--accent); font-weight:bold;">3. SCHICHT</label><div class="row"><div class="col"><label class="lbl-mini">BEGINN</label><input type="time" id="beginn"></div><div class="col"><label class="lbl-mini">ENDE</label><input type="time" id="ende"></div></div></div>
+    <div class="card">
+        <label style="color:var(--accent); font-weight:bold;">1. STRECKE</label>
+        <div class="station-chain" id="station-container"></div>
+    </div>
+
+    <div class="card">
+        <label style="color:var(--accent); font-weight:bold;">2. ZUG DETAILS</label>
+        <div id="segments-container"></div>
+        <div id="segments-msg" style="color:#666; font-style:italic; margin-top:10px;">Gib oben mindestens 2 Stationen ein.</div>
+    </div>
+
+    <div class="card">
+        <label style="color:var(--accent); font-weight:bold;">3. SCHICHT</label>
+        <div class="row">
+            <div class="col"><label class="lbl-mini">BEGINN</label><input type="time" id="beginn"></div>
+            <div class="col"><label class="lbl-mini">ENDE</label><input type="time" id="ende"></div>
+        </div>
+    </div>
+
     <div class="card">
         <label style="color:var(--accent); font-weight:bold;">4. STATUS</label>
-        <div class="check-row"><input type="checkbox" id="c_str" onchange="toggleBox('sub_str', this.checked)"><label for="c_str">Streckenkunde / EW / BR</label></div><div id="sub_str" class="hidden sub-field"><input type="text" id="val_streckenkunde" placeholder="Info"></div>
+        <div class="check-row"><input type="checkbox" id="c_str" onchange="toggleBox('sub_str', this.checked)"><label for="c_str">Streckenkunde / EW / BR</label></div>
+        <div id="sub_str" class="hidden sub-field"><input type="text" id="val_streckenkunde" placeholder="Info"></div>
         <div class="check-row"><input type="checkbox" id="c_vor"><label for="c_vor">Ausfall vor DB</label></div>
         <div class="check-row"><input type="checkbox" id="c_nach"><label for="c_nach">Ausfall nach DB</label></div>
         <div class="check-row"><input type="checkbox" id="c_normal"><label for="c_normal">Normaldienst</label></div>
         <div class="check-row"><input type="checkbox" id="c_bereit"><label for="c_bereit">Bereitschaft</label></div>
-        <div class="check-row" style="border-top:1px solid #444; margin-top:5px;"><input type="checkbox" id="c_versch" onchange="toggleBox('sub_versch', this.checked)"><label for="c_versch">Dienst verschoben</label></div><div id="sub_versch" class="hidden sub-field"><input type="number" step="0.1" id="val_verschiebung" placeholder="Stunden"></div>
+        <div class="check-row" style="border-top:1px solid #444; margin-top:5px;"><input type="checkbox" id="c_versch" onchange="toggleBox('sub_versch', this.checked)"><label for="c_versch">Dienst verschoben</label></div>
+        <div id="sub_versch" class="hidden sub-field"><input type="number" step="0.1" id="val_verschiebung" placeholder="Stunden"></div>
     </div>
-    <button id="btnSave" class="btn-primary" onclick="saveData()" style="padding:15px; font-size:1.1rem;">SPEICHERN</button>
+
+    <button id="btnSave" class="btn-primary" onclick="saveData()">SPEICHERN</button>
     <div id="statusbox" style="margin-top:15px; text-align:center;"></div>
 </div>
 
+<div id="conflict-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <div class="modal-header">⚠️ Konflikte erkannt</div>
+        <div style="font-size:0.9rem; color:#ccc; margin-bottom:15px;">
+            Unterschiede zwischen Server und deinem lokalen Entwurf. Wähle was du behalten willst.
+        </div>
+        <div id="conflict-list"></div>
+        <div class="modal-actions">
+            <button class="btn-server" onclick="resolveAll('server')">Alle vom Server</button>
+            <button class="btn-draft" onclick="resolveAll('draft')">Alle vom Entwurf</button>
+        </div>
+        <button onclick="applyResolution()" style="margin-top:10px; background:var(--accent);">Auswahl übernehmen</button>
+    </div>
+</div>
+
 <script>
-    // --- KONFIGURATION ---
-    // HIER DEINE URL EINTRAGEN
+    // --- DEINE AKTUELLE URL ---
     const API_URL = "https://script.google.com/macros/s/AKfycbw1pMOyQJBEQulcNO_vuDonoipHF0SdYFZrRYaacnB6JO0UoEHFpTkUK-JnoNhhkRd9/exec"; 
 
+    // STATE
     let currentFileId = null; 
     let unsavedChanges = false;
     let isLoading = false; 
-    
+    let isOfflineMode = false;
+    let pendingMergeData = null;
+
     document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('datum').valueAsDate = new Date();
         const savedPW = localStorage.getItem("app_password");
         if(savedPW) document.getElementById('api-pw').value = savedPW;
         document.getElementById('api-pw').addEventListener("input", function() { localStorage.setItem("app_password", this.value); });
+        
         addStationInput(); addStationInput();
         attachDirtyListeners();
+        checkDraftAvailability(document.getElementById('datum').value);
     });
 
+    document.getElementById('datum').addEventListener('change', (e) => checkDraftAvailability(e.target.value));
+
+    // DRAFTS
+    function checkDraftAvailability(date) {
+        const draft = localStorage.getItem("draft_" + date);
+        const status = document.getElementById('file-status');
+        if(draft) status.innerHTML = `<span style="color:var(--warn)">Lokaler Entwurf vorhanden.</span>`;
+        else status.innerHTML = "";
+    }
+    function autoSaveToLocal() {
+        const date = document.getElementById('datum').value;
+        localStorage.setItem("draft_" + date, JSON.stringify(collectFormData()));
+    }
+
+    // UI HELPER
     window.toggleBox = function(id, show) {
         const el = document.getElementById(id);
         if(show) el.classList.remove('hidden'); else el.classList.add('hidden');
         markDirty();
     }
-    function markDirty() { if(!isLoading) unsavedChanges = true; }
+    function markDirty() { if(!isLoading) { unsavedChanges = true; autoSaveToLocal(); } }
     function attachDirtyListeners() {
         document.querySelectorAll('#editor-area input').forEach(el => {
             if(!el.dataset.watched) { el.addEventListener('input', markDirty); el.addEventListener('change', markDirty); el.dataset.watched = "true"; }
         });
     }
-    
-    // Station/Segment Logic (Identisch zu v3.2)
+
+    function collectFormData() {
+        const segments = [];
+        document.querySelectorAll('.segment-card:not(.hidden)').forEach(c => {
+            segments.push({
+                start: c.querySelector('.inp-start').value, ziel: c.querySelector('.inp-ziel').value,
+                zugNr: c.querySelector('.inp-zug').value, tfz: c.querySelector('.inp-tfz').value,
+                ab: c.querySelector('.inp-ab').value, an: c.querySelector('.inp-an').value, note: c.querySelector('.inp-note').value
+            });
+        });
+        return {
+            password: document.getElementById('api-pw').value, fileId: currentFileId, datum: document.getElementById('datum').value,
+            beginn: document.getElementById('beginn').value, ende: document.getElementById('ende').value,
+            chk_streckenkunde: document.getElementById('c_str').checked, val_streckenkunde: document.getElementById('val_streckenkunde').value,
+            chk_ausfall_vor: document.getElementById('c_vor').checked, chk_ausfall_nach: document.getElementById('c_nach').checked,
+            chk_normal: document.getElementById('c_normal').checked, chk_bereitschaft: document.getElementById('c_bereit').checked,
+            val_verschiebung: document.getElementById('c_versch').checked ? document.getElementById('val_verschiebung').value : "",
+            segments: segments, stations: Array.from(document.querySelectorAll('.station-input')).map(i=>i.value).filter(v=>v)
+        };
+    }
+
     function addStationInput(val = "") {
         const cont = document.getElementById('station-container');
         if (cont.children.length > 0) { const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.innerHTML = '➞'; cont.appendChild(arrow); }
@@ -130,142 +233,205 @@
                 card.classList.remove('hidden'); card.querySelector('.route-label').innerText = `${start} ➞ ${ziel}`; card.querySelector('.inp-start').value = start; card.querySelector('.inp-ziel').value = ziel;
             }
         }
-        const totalNeeded = codes.length - 1;
         const allCards = cont.querySelectorAll('.segment-card');
-        allCards.forEach((c, idx) => { if (idx >= totalNeeded) c.classList.add('hidden'); });
+        allCards.forEach((c, idx) => { if (idx >= (codes.length - 1)) c.classList.add('hidden'); });
     }
 
+    // NETWORK & SYNC
     async function callAPI(payload) {
-        const response = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
-        return await response.json();
+        const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload), signal: controller.signal });
+        clearTimeout(timeoutId); return await response.json();
     }
 
     async function attemptLoad() {
-        if (unsavedChanges && !confirm("⚠️ Ungespeicherte Änderungen!\nWirklich neu laden?")) return;
-        
         const pw = document.getElementById('api-pw').value;
         const date = document.getElementById('datum').value;
         const btn = document.getElementById('btnLoad');
         const status = document.getElementById('file-status');
+        const banner = document.getElementById('offline-banner');
         
         if(!pw) { alert("Passwort fehlt!"); return; }
-        
-        btn.disabled = true; btn.innerText = "⏳"; isLoading = true;
+        btn.disabled = true; btn.innerText = "⏳"; isLoading = true; status.innerHTML = "";
         
         try {
             const res = await callAPI({ action: "load", password: pw, date: date });
-            btn.disabled = false;
+            isOfflineMode = false; banner.style.display = "none";
             document.getElementById('editor-area').classList.remove('hidden');
             
-            // Button Text immer zurücksetzen
-            btn.innerText = "LADEN/ANLEGEN";
-            
-            if (res.success && res.found) {
-                // Button Farbe kann man als Feedback lassen, oder neutral machen
-                // Wir lassen es neutral (btn-load class hat Farbe orange) oder setzen style zurück?
-                // Der User wollte "immer Laden/Anlegen".
-                // Wir können das Feedback im Status-Text lassen.
-                status.innerHTML = `<span style="color:#2ecc71">Bericht geladen.</span>`;
-                currentFileId = res.fileId;
-                fillForm(res.data);
-                document.getElementById('btnSave').innerText = "ÄNDERUNGEN SPEICHERN";
-            } else if (res.success) {
-                status.innerHTML = "Neuer Bericht.";
-                currentFileId = null;
-                resetForm(); 
-                document.getElementById('btnSave').innerText = "NEU ANLEGEN";
+            if (res.success) {
+                const localDraftJson = localStorage.getItem("draft_" + date);
+                if (localDraftJson && res.found) {
+                    const localDraft = JSON.parse(localDraftJson);
+                    const conflicts = compareDatasets(res.data, localDraft);
+                    if (conflicts.length === 0) {
+                        status.innerHTML = `<span style="color:#2ecc71">Geladen. Entwurf war identisch.</span>`;
+                        currentFileId = res.fileId; fillForm(res.data); localStorage.removeItem("draft_" + date);
+                    } else {
+                        status.innerHTML = `<span style="color:var(--warn)">Konflikte erkannt!</span>`;
+                        currentFileId = res.fileId; pendingMergeData = { server: res.data, draft: localDraft, conflicts: conflicts };
+                        showConflictModal(conflicts); fillForm(res.data);
+                    }
+                } else if (res.found) {
+                    status.innerHTML = `<span style="color:#2ecc71">Bericht geladen.</span>`;
+                    currentFileId = res.fileId; fillForm(res.data);
+                } else if (localDraftJson) {
+                     status.innerHTML = `<span style="color:var(--warn)">Neu (Nur lokaler Entwurf).</span>`;
+                     loadFromLocal(localDraftJson);
+                } else {
+                    status.innerHTML = "Neuer Bericht."; currentFileId = null; resetForm(); 
+                }
             } else {
                 alert("API Fehler: " + res.error);
             }
         } catch(e) {
-            alert("Verbindungsfehler: " + e);
-            btn.innerText = "LADEN/ANLEGEN";
+            isOfflineMode = true; banner.style.display = "block";
+            document.getElementById('editor-area').classList.remove('hidden');
+            const localDraft = localStorage.getItem("draft_" + date);
+            if(localDraft) { status.innerHTML = "Offline. Entwurf geladen."; loadFromLocal(localDraft); }
+            else { status.innerHTML = "Offline. Neu."; currentFileId = null; resetForm(); }
         }
-        
+        btn.innerText = "LADEN/ANLEGEN";
         setTimeout(() => { isLoading = false; unsavedChanges = false; }, 100);
     }
 
-    function fillForm(data) {
-        // ... (Identisch zu vorher)
-        document.getElementById('station-container').innerHTML = '';
-        document.getElementById('segments-container').innerHTML = ''; 
-        document.getElementById('beginn').value = data.beginn;
-        document.getElementById('ende').value = data.ende;
-        
-        const setC = (id, checked, subId) => {
-            document.getElementById(id).checked = checked;
-            if(subId) { const sub = document.getElementById(subId); if(checked) sub.classList.remove('hidden'); else sub.classList.add('hidden'); }
+    // CONFLICTS
+    function compareDatasets(server, draft) {
+        const diffs = [];
+        const check = (label, key, isBool = false) => {
+            const sVal = server[key] || (isBool ? false : "");
+            const dVal = draft[key] || (isBool ? false : "");
+            if (String(sVal) !== String(dVal)) { if(!sVal && !dVal) return; diffs.push({ label: label, key: key, server: sVal, draft: dVal, isSeg: false }); }
         };
+        check("Dienstbeginn", "beginn"); check("Dienstende", "ende");
+        check("Streckenkunde", "chk_streckenkunde", true); check("Info Streckenkunde", "val_streckenkunde");
+        check("Ausfall vor", "chk_ausfall_vor", true); check("Ausfall nach", "chk_ausfall_nach", true);
+        check("Normaldienst", "chk_normal", true); check("Bereitschaft", "chk_bereitschaft", true);
+        check("Verschiebung", "val_verschiebung");
+
+        const maxLen = Math.max(server.segments?.length || 0, draft.segments?.length || 0);
+        for(let i=0; i<maxLen; i++) {
+            const sSeg = server.segments?.[i] || {};
+            const dSeg = draft.segments?.[i] || {};
+            const subCheck = (name, f) => {
+                if (String(sSeg[f]||"") !== String(dSeg[f]||"")) {
+                    diffs.push({ label: `Zug ${i+1}: ${name}`, key: `seg_${i}_${f}`, server: sSeg[f]||"(leer)", draft: dSeg[f]||"(leer)", isSeg: true, idx: i, field: f });
+                }
+            };
+            subCheck("Zug-Nr", "zugNr"); subCheck("Tfz", "tfz"); subCheck("Abfahrt", "ab"); subCheck("Ankunft", "an"); subCheck("Notiz", "note");
+        }
+        return diffs;
+    }
+
+    function showConflictModal(conflicts) {
+        const list = document.getElementById('conflict-list');
+        list.innerHTML = "";
+        conflicts.forEach((c, idx) => {
+            const div = document.createElement('div');
+            div.className = "conflict-item";
+            const showVal = (v) => v === true ? "☑ JA" : (v === false ? "☐ NEIN" : v);
+            div.innerHTML = `
+                <div class="conflict-label">${c.label}</div>
+                <div class="val-box val-server" id="conf-s-${idx}" onclick="selectResolution(${idx}, 'server')"><span>SERVER: <b>${showVal(c.server)}</b></span></div>
+                <div class="val-box val-draft selected" id="conf-d-${idx}" onclick="selectResolution(${idx}, 'draft')"><span>ENTWURF: <b>${showVal(c.draft)}</b></span></div>
+            `;
+            list.appendChild(div);
+        });
+        document.getElementById('conflict-modal').classList.remove('hidden');
+    }
+
+    window.selectResolution = function(idx, choice) {
+        document.getElementById(`conf-s-${idx}`).classList.remove('selected');
+        document.getElementById(`conf-d-${idx}`).classList.remove('selected');
+        document.getElementById(`conf-${choice.charAt(0)}-${idx}`).classList.add('selected');
+    }
+    window.resolveAll = function(choice) {
+        const boxes = document.querySelectorAll('.val-box');
+        boxes.forEach(b => b.classList.remove('selected'));
+        const targetClass = choice === 'server' ? '.val-server' : '.val-draft';
+        document.querySelectorAll(targetClass).forEach(b => b.classList.add('selected'));
+    }
+    window.applyResolution = function() {
+        const conflicts = pendingMergeData.conflicts;
+        const mergedData = JSON.parse(JSON.stringify(pendingMergeData.server));
+        if(!mergedData.segments) mergedData.segments = [];
+        conflicts.forEach((c, idx) => {
+            if (document.getElementById(`conf-d-${idx}`).classList.contains('selected')) {
+                if (!c.isSeg) mergedData[c.key] = pendingMergeData.draft[c.key];
+                else {
+                    if(!mergedData.segments[c.idx]) mergedData.segments[c.idx] = {};
+                    mergedData.segments[c.idx][c.field] = pendingMergeData.draft.segments?.[c.idx]?.[c.field];
+                }
+            }
+        });
+        fillForm(mergedData);
+        document.getElementById('conflict-modal').classList.add('hidden');
+        document.getElementById('file-status').innerHTML = `<span style="color:var(--success)">Konflikte gelöst.</span>`;
+        unsavedChanges = true; 
+    }
+
+    // FORM FILL & RESET
+    function loadFromLocal(jsonStr) { const data = JSON.parse(jsonStr); currentFileId = data.fileId; fillForm(data); }
+    function fillForm(data) {
+        document.getElementById('station-container').innerHTML = ''; document.getElementById('segments-container').innerHTML = ''; 
+        document.getElementById('beginn').value = data.beginn; document.getElementById('ende').value = data.ende;
+        const setC = (id, checked, subId) => { document.getElementById(id).checked = checked; if(subId) { const sub = document.getElementById(subId); if(checked) sub.classList.remove('hidden'); else sub.classList.add('hidden'); } };
         setC('c_str', data.chk_streckenkunde, 'sub_str'); document.getElementById('val_streckenkunde').value = data.val_streckenkunde;
         setC('c_vor', data.chk_ausfall_vor); setC('c_nach', data.chk_ausfall_nach); setC('c_normal', data.chk_normal); setC('c_bereit', data.chk_bereitschaft);
         if(data.val_verschiebung) { setC('c_versch', true, 'sub_versch'); document.getElementById('val_verschiebung').value = data.val_verschiebung; } else { setC('c_versch', false, 'sub_versch'); }
         
         const segs = data.segments || [];
         const stations = [];
-        if (segs.length > 0) { stations.push(segs[0].start); segs.forEach(s => stations.push(s.ziel)); } else { stations.push('', ''); }
-        stations.forEach(st => addStationInput(st)); if(stations.length < 6) addStationInput();
+        if(data.stations && data.stations.length > 0) data.stations.forEach(st => stations.push(st));
+        else if (segs.length > 0) { stations.push(segs[0].start); segs.forEach(s => stations.push(s.ziel)); } 
+        else { stations.push('', ''); }
         
+        stations.forEach(st => addStationInput(st)); if(stations.length < 6) addStationInput();
         updateSegments();
-        segs.forEach((s, i) => {
-            const card = document.getElementById(`segment-${i}`);
-            if(card) {
-                card.querySelector('.inp-zug').value = s.zugNr; card.querySelector('.inp-tfz').value = s.tfz;
-                card.querySelector('.inp-ab').value = s.ab; card.querySelector('.inp-an').value = s.an; card.querySelector('.inp-note').value = s.note;
-            }
-        });
+        segs.forEach((s, i) => { const card = document.getElementById(`segment-${i}`); if(card) { card.querySelector('.inp-zug').value = s.zugNr; card.querySelector('.inp-tfz').value = s.tfz; card.querySelector('.inp-ab').value = s.ab; card.querySelector('.inp-an').value = s.an; card.querySelector('.inp-note').value = s.note; } });
         attachDirtyListeners();
     }
-
     function resetForm() {
-        document.getElementById('station-container').innerHTML = '';
-        document.getElementById('segments-container').innerHTML = ''; 
+        document.getElementById('station-container').innerHTML = ''; document.getElementById('segments-container').innerHTML = ''; 
         addStationInput(); addStationInput(); 
         document.getElementById('beginn').value = ''; document.getElementById('ende').value = '';
         document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
         document.querySelectorAll('.sub-field').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('input[type="text"], input[type="number"]').forEach(i => i.value = '');
+        document.querySelectorAll('input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="date"]):not([type="password"])').forEach(i => i.value = '');
         attachDirtyListeners();
     }
 
+    // SAVE
     async function saveData() {
         const btn = document.getElementById('btnSave');
         const status = document.getElementById('statusbox');
-        const pw = document.getElementById('api-pw').value;
+        const date = document.getElementById('datum').value;
+        btn.disabled = true; btn.innerText = "SPEICHERE..."; 
+        autoSaveToLocal(); 
         
-        btn.disabled = true; btn.innerText = "SPEICHERE..."; status.innerHTML = "";
-        
-        const segments = [];
-        document.querySelectorAll('.segment-card:not(.hidden)').forEach(c => {
-            segments.push({
-                start: c.querySelector('.inp-start').value, ziel: c.querySelector('.inp-ziel').value,
-                zugNr: c.querySelector('.inp-zug').value, tfz: c.querySelector('.inp-tfz').value,
-                ab: c.querySelector('.inp-ab').value, an: c.querySelector('.inp-an').value, note: c.querySelector('.inp-note').value
-            });
-        });
-        
-        const data = {
-            action: "save", password: pw, fileId: currentFileId, datum: document.getElementById('datum').value,
-            beginn: document.getElementById('beginn').value, ende: document.getElementById('ende').value,
-            chk_streckenkunde: document.getElementById('c_str').checked, val_streckenkunde: document.getElementById('val_streckenkunde').value,
-            chk_ausfall_vor: document.getElementById('c_vor').checked, chk_ausfall_nach: document.getElementById('c_nach').checked,
-            chk_normal: document.getElementById('c_normal').checked, chk_bereitschaft: document.getElementById('c_bereit').checked,
-            val_verschiebung: document.getElementById('c_versch').checked ? document.getElementById('val_verschiebung').value : "",
-            segments: segments, stations: Array.from(document.querySelectorAll('.station-input')).map(i=>i.value).filter(v=>v)
-        };
+        if (isOfflineMode) { 
+            btn.disabled = false; btn.innerText = "LOKAL GESICHERT 💾"; 
+            status.innerHTML = `<span style="color:var(--warn)">Daten auf Handy gespeichert.<br>Sende sie, wenn du Internet hast!</span>`; 
+            unsavedChanges = false; return; 
+        }
+
+        const data = collectFormData(); 
+        data.action = "save"; 
 
         try {
             const res = await callAPI(data);
-            if (res.success) {
-                btn.disabled = false; btn.innerText = "GESPEICHERT ✅";
-                status.innerHTML = `<a href="${res.url}" target="_blank" style="color:var(--success); font-weight:bold;">DATEI ÖFFNEN</a>`;
-                unsavedChanges = false;
-            } else {
-                btn.disabled = false; btn.innerText = "FEHLER";
-                status.innerHTML = `<span style="color:var(--danger)">${res.error}</span>`;
+            if (res.success) { 
+                btn.disabled = false; btn.innerText = "GESPEICHERT ✅"; 
+                status.innerHTML = `<div style="margin-top:10px;">✅ <b>Erfolg!</b><br><a href="${res.excelUrl}" target="_blank" style="color:var(--success); font-weight:bold; border:1px solid var(--success); padding:5px 10px; border-radius:5px; text-decoration:none;">📤 EXCEL LADEN</a></div>`; 
+                unsavedChanges = false; localStorage.removeItem("draft_" + date); 
+            } else { 
+                btn.disabled = false; btn.innerText = "FEHLER"; status.innerHTML = `<span style="color:var(--danger)">${res.error}</span>`; 
             }
-        } catch(e) {
-            btn.disabled = false; btn.innerText = "FEHLER";
-            status.innerHTML = `<span style="color:var(--danger)">${e}</span>`;
+        } catch(e) { 
+            isOfflineMode = true; document.getElementById('offline-banner').style.display = "block"; 
+            btn.disabled = false; btn.innerText = "LOKAL GESICHERT 💾"; 
+            status.innerHTML = `<span style="color:var(--danger)">Verbindung verloren.<br>Daten lokal gesichert.</span>`; 
+            unsavedChanges = false; 
         }
     }
 </script>
