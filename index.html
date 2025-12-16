@@ -23,6 +23,7 @@
     
     .btn-primary { background: var(--accent); border: none; font-weight: bold; cursor: pointer; color: white; margin-top:10px; font-size: 1.1rem; padding: 15px; }
     .btn-load { background: var(--warn); color: white; border: none; font-weight: bold; cursor: pointer; }
+    .btn-nav { background: #333; border: 1px solid #555; font-size: 0.9rem; } /* Neue Buttons */
     
     #offline-banner { background: var(--danger); color: white; text-align: center; padding: 10px; font-weight: bold; border-radius: 8px; margin-bottom: 15px; display: none; }
     
@@ -63,7 +64,7 @@
 <body>
 
 <header>
-    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V6.1</h4>
+    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V7</h4>
     <input type="password" id="api-pw" placeholder="PW" required>
 </header>
 
@@ -79,6 +80,16 @@
             <button type="button" id="btnLoad" class="btn-load" onclick="attemptLoad()">LADEN/ANLEGEN</button>
         </div>
     </div>
+    
+    <div id="nav-buttons" class="row hidden" style="margin-top:10px;">
+        <div class="col">
+            <button type="button" class="btn-nav" onclick="changeDay(-1)">◀ VORHERIGER</button>
+        </div>
+        <div class="col">
+            <button type="button" class="btn-nav" onclick="changeDay(1)">NÄCHSTER ▶</button>
+        </div>
+    </div>
+
     <div id="file-status" style="margin-top: 10px; font-size: 0.85rem; color: #aaa; text-align: center;"></div>
 </div>
 
@@ -164,13 +175,8 @@
             addStationInput(); addStationInput();
             attachDirtyListeners();
             
-            // SICHERHEITSCHECK: Existiert das Notizfeld?
             const noteBox = document.getElementById('manual_notes');
-            if (noteBox) {
-                noteBox.addEventListener('input', markDirty);
-            } else {
-                console.warn("Element 'manual_notes' fehlt im HTML!");
-            }
+            if (noteBox) noteBox.addEventListener('input', markDirty);
             
             checkDraftAvailability(document.getElementById('datum').value);
         } catch (e) {
@@ -178,7 +184,28 @@
         }
     });
 
-    document.getElementById('datum').addEventListener('change', (e) => checkDraftAvailability(e.target.value));
+    document.getElementById('datum').addEventListener('change', (e) => {
+        checkDraftAvailability(e.target.value);
+        // Hinweis: Automatisch neu laden beim manuellen Datumswechsel machen wir nicht, 
+        // um Datenverlust zu vermeiden, wenn man aus Versehen klickt.
+        // Dafür gibt es jetzt die Nav-Buttons.
+    });
+
+    // NAVIGATION LOGIC
+    function changeDay(offset) {
+        if (unsavedChanges && !confirm("⚠️ Ungespeicherte Änderungen!\nWirklich Tag wechseln?")) return;
+        
+        const dateInput = document.getElementById('datum');
+        if(!dateInput.value) return;
+        
+        const d = dateInput.valueAsDate;
+        d.setDate(d.getDate() + offset);
+        dateInput.valueAsDate = d;
+        
+        // Status prüfen und sofort laden
+        checkDraftAvailability(dateInput.value);
+        attemptLoad();
+    }
 
     // DRAFTS
     function checkDraftAvailability(date) {
@@ -215,7 +242,6 @@
             });
         });
         
-        // Safety Check für Notes
         const noteEl = document.getElementById('manual_notes');
         const noteVal = noteEl ? noteEl.value : "";
 
@@ -268,7 +294,8 @@
 
     // NETWORK & SYNC
     async function callAPI(payload) {
-        const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 8000);
+        // --- TIMEOUT ERHÖHT AUF 30 SEKUNDEN ---
+        const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 30000);
         const response = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload), signal: controller.signal });
         clearTimeout(timeoutId); return await response.json();
     }
@@ -286,7 +313,10 @@
         try {
             const res = await callAPI({ action: "load", password: pw, date: date });
             isOfflineMode = false; banner.style.display = "none";
+            
+            // UI REVEAL
             document.getElementById('editor-area').classList.remove('hidden');
+            document.getElementById('nav-buttons').classList.remove('hidden'); // Buttons zeigen!
             
             if (res.success) {
                 const localDraftJson = localStorage.getItem("draft_" + date);
@@ -315,7 +345,10 @@
             }
         } catch(e) {
             isOfflineMode = true; banner.style.display = "block";
+            // AUCH BEI OFFLINE ALLES ZEIGEN
             document.getElementById('editor-area').classList.remove('hidden');
+            document.getElementById('nav-buttons').classList.remove('hidden'); 
+
             const localDraft = localStorage.getItem("draft_" + date);
             if(localDraft) { status.innerHTML = "Offline. Entwurf geladen."; loadFromLocal(localDraft); }
             else { status.innerHTML = "Offline. Neu."; currentFileId = null; resetForm(); }
