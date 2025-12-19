@@ -22,7 +22,7 @@
     .hidden { display: none !important; }
     
     .btn-primary { background: var(--accent); border: none; font-weight: bold; cursor: pointer; color: white; margin-top:10px; font-size: 1.1rem; padding: 15px; }
-    .btn-load { background: var(--warn); color: white; border: none; font-weight: bold; cursor: pointer; }
+    /* btn-load entfernt, da nicht mehr benötigt */
     .btn-nav { background: #333; border: 1px solid #555; font-size: 0.9rem; cursor: pointer; }
     .btn-nav:hover { background: #444; }
 
@@ -79,20 +79,17 @@
 <body>
 
 <header>
-    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V8.4</h4>
+    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V9.0</h4>
     <input type="password" id="api-pw" placeholder="PW" required>
 </header>
 
 <div id="offline-banner">⚠️ OFFLINE MODUS</div>
 
 <div class="card">
-    <div class="row" style="align-items: flex-end;">
-        <div class="col" style="flex: 2;">
+    <div class="row">
+        <div class="col">
             <label class="lbl-mini">DATUM</label>
             <input type="date" id="datum">
-        </div>
-        <div class="col">
-            <button type="button" id="btnLoad" class="btn-load" onclick="attemptLoad()">LADEN/ANLEGEN</button>
         </div>
     </div>
     
@@ -131,11 +128,11 @@
                 <input type="number" id="km_start" placeholder="Start">
             </div>
             <div class="col">
-                <label class="lbl-mini">Energiezähler (Aufnahme) 1.8</label>
+                <label class="lbl-mini">EZ (Aufn.) 1.8</label>
                 <input type="number" step="any" id="nrg18_start" placeholder="kWh">
             </div>
             <div class="col">
-                <label class="lbl-mini">Energiezähler (Rückspeisung) 2.8</label>
+                <label class="lbl-mini">EZ (Rücksp.) 2.8</label>
                 <input type="number" step="any" id="nrg28_start" placeholder="kWh">
             </div>
         </div>
@@ -152,11 +149,11 @@
                 <input type="number" id="km_ende" placeholder="Ende">
             </div>
             <div class="col">
-                <label class="lbl-mini">Energiezähler (Aufnahme) 1.8</label>
+                <label class="lbl-mini">EZ (Aufn.) 1.8</label>
                 <input type="number" step="any" id="nrg18_ende" placeholder="kWh">
             </div>
             <div class="col">
-                <label class="lbl-mini">Energiezähler (Rückspeisung) 2.8</label>
+                <label class="lbl-mini">EZ (Rücksp.) 2.8</label>
                 <input type="number" step="any" id="nrg28_ende" placeholder="kWh">
             </div>
         </div>
@@ -336,12 +333,13 @@
     async function attemptLoad() {
         const pw = document.getElementById('api-pw').value;
         const date = document.getElementById('datum').value;
-        const btn = document.getElementById('btnLoad');
+        // btnLoad entfernt
         const status = document.getElementById('file-status');
         const banner = document.getElementById('offline-banner');
         
         if(!pw) { alert("Passwort fehlt!"); return; }
-        btn.disabled = true; btn.innerText = "⏳"; isLoading = true; status.innerHTML = "";
+        // Loading Status zeigen
+        isLoading = true; status.innerHTML = "⏳ Lade Daten...";
         
         try {
             const res = await callAPI({ action: "load", password: pw, date: date });
@@ -373,6 +371,7 @@
                 }
             } else {
                 alert("API Fehler: " + res.error);
+                status.innerHTML = `<span style="color:var(--danger)">Fehler beim Laden</span>`;
             }
         } catch(e) {
             isOfflineMode = true; banner.style.display = "block";
@@ -382,7 +381,7 @@
             if(localDraft) { status.innerHTML = "Offline. Entwurf geladen."; loadFromLocal(localDraft); }
             else { status.innerHTML = "Offline. Neu."; currentFileId = null; resetForm(); }
         }
-        btn.innerText = "LADEN/ANLEGEN";
+        
         setTimeout(() => { isLoading = false; unsavedChanges = false; }, 100);
     }
 
@@ -466,15 +465,7 @@
         const noteEl = document.getElementById('manual_notes'); if(noteEl) noteEl.value = data.manual_notes || "";
         const segs = data.segments || []; const stations = [];
         if(data.stations && data.stations.length > 0) data.stations.forEach(st => stations.push(st)); else if (segs.length > 0) { stations.push(segs[0].start); segs.forEach(s => stations.push(s.ziel)); } else { stations.push('', ''); }
-        
-        // HIER DER FIX FÜR DIE BOXEN:
-        stations.forEach(st => addStationInput(st)); 
-        // Nur eine leere Box anhängen, wenn die letzte geladene Station NICHT leer ist
-        // UND wir noch nicht beim Maximum sind.
-        if (stations.length > 0 && stations[stations.length - 1] !== "" && stations.length < 6) {
-            addStationInput();
-        }
-        
+        stations.forEach(st => addStationInput(st)); if(stations.length < 6) addStationInput();
         updateSegments();
         segs.forEach((s, i) => { const card = document.getElementById(`segment-${i}`); if(card) { card.querySelector('.inp-zug').value = s.zugNr; card.querySelector('.inp-tfz').value = s.tfz; card.querySelector('.inp-ab').value = s.ab; card.querySelector('.inp-an').value = s.an; card.querySelector('.inp-note').value = s.note; } });
         attachDirtyListeners();
