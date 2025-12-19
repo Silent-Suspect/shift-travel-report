@@ -13,7 +13,6 @@
     }
     body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 15px; max-width: 800px; margin: 0 auto; padding-bottom: 80px;}
     
-    /* INPUTS: Margin-top reduziert auf 3px (vorher 5px), damit sie näher am Label kleben */
     input, button, textarea { width: 100%; padding: 12px; margin-top: 3px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; font-family: sans-serif; }
     input:focus, textarea:focus { border-color: var(--accent); outline: none; }
     
@@ -39,7 +38,6 @@
     .seg-header { font-size: 0.95rem; font-weight: bold; color: var(--accent); margin-bottom: 8px; display: flex; justify-content: space-between; }
     .inp-mini { font-size: 0.9rem; padding: 8px; }
     
-    /* UPDATE: Layout optimiert für "Label oben, Input unten" */
     .lbl-mini { 
         font-size: 0.7rem; 
         color: #888; 
@@ -49,12 +47,9 @@
         letter-spacing: 0.5px; 
         white-space: normal; 
         display: block; 
-        
-        /* HIER DIE MAGIE: */
-        margin-top: 15px;   /* Drückt das Label weg von der Zeile dadrüber */
-        margin-bottom: 2px; /* Zieht das Label ran an das Input Feld */
-        line-height: 1.1;   /* Kompakter Textblock */
-        /* min-height entfernt, damit keine Lücken entstehen */
+        margin-top: 15px;
+        margin-bottom: 2px; 
+        line-height: 1.1;
     }
     
     .check-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #333; }
@@ -84,7 +79,7 @@
 <body>
 
 <header>
-    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V8.3</h4>
+    <h4 style="color:var(--accent); margin:0;">Fahrtbericht V8.4</h4>
     <input type="password" id="api-pw" placeholder="PW" required>
 </header>
 
@@ -471,7 +466,15 @@
         const noteEl = document.getElementById('manual_notes'); if(noteEl) noteEl.value = data.manual_notes || "";
         const segs = data.segments || []; const stations = [];
         if(data.stations && data.stations.length > 0) data.stations.forEach(st => stations.push(st)); else if (segs.length > 0) { stations.push(segs[0].start); segs.forEach(s => stations.push(s.ziel)); } else { stations.push('', ''); }
-        stations.forEach(st => addStationInput(st)); if(stations.length < 6) addStationInput();
+        
+        // HIER DER FIX FÜR DIE BOXEN:
+        stations.forEach(st => addStationInput(st)); 
+        // Nur eine leere Box anhängen, wenn die letzte geladene Station NICHT leer ist
+        // UND wir noch nicht beim Maximum sind.
+        if (stations.length > 0 && stations[stations.length - 1] !== "" && stations.length < 6) {
+            addStationInput();
+        }
+        
         updateSegments();
         segs.forEach((s, i) => { const card = document.getElementById(`segment-${i}`); if(card) { card.querySelector('.inp-zug').value = s.zugNr; card.querySelector('.inp-tfz').value = s.tfz; card.querySelector('.inp-ab').value = s.ab; card.querySelector('.inp-an').value = s.an; card.querySelector('.inp-note').value = s.note; } });
         attachDirtyListeners();
